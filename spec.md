@@ -26,7 +26,17 @@ This specification performs that consolidation, providing:
 
 4. **Traceability**: Every primitive references its source in W3C specifications. Primitives not present in W3C specs are explicitly marked as extensions with rationale.
 
-### 1.3 Scope
+### 1.3 Implementation Layering
+
+Implementations SHOULD separate two parameter layers:
+
+1. **Core parameters**: Defined in this spec, derived from W3C. These are immutable and portable across applications. Generated code MUST NOT be hand-edited.
+
+2. **Convenience parameters**: Application-specific extensions (e.g., `text` to resolve an element by visible text before calling `pointer_move`). These are defined in a separate application-level spec (e.g., `ops-spec.yaml`) and generated alongside core implementations.
+
+Both layers SHOULD be auto-generated from their respective specifications. Implementations MAY provide a generator that reads this spec and the application spec to produce code for both layers.
+
+### 1.4 Scope
 
 This specification covers interaction between a human and **web content rendered in a browser viewport**. The following are explicitly out of scope:
 
@@ -34,6 +44,19 @@ This specification covers interaction between a human and **web content rendered
 - Operating system interaction (file dialogs, window management, notifications)
 - Composite actions (click = pointer_down + pointer_up; type "hello" = 5 × key_down + key_up)
 - Navigation commands (back, forward, navigate to URL) — these are browser actions, not human-content interactions
+- Application workflows (bug filing, test reporting) — these are tool-level concerns, not HCI primitives
+
+### 1.5 Framework Compatibility
+
+Some JavaScript frameworks (React, Vue, Angular) use controlled components that intercept native keyboard events. In these cases, `key_down`/`key_up` sequences may not result in text appearing in input fields.
+
+Implementations SHOULD:
+1. Attempt the standard CDP/WebDriver key event dispatch first
+2. Detect when the input value did not change as expected
+3. Fall back to framework-compatible text injection (e.g., native property setter + input event)
+4. Return a hint to the caller indicating the fallback was used
+
+This preserves the primitive vocabulary (`key_down`/`key_up`) while transparently handling framework-specific behavior.
 
 ---
 
