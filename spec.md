@@ -32,7 +32,7 @@ Implementations SHOULD separate two parameter layers:
 
 1. **Core parameters**: Defined in this spec, derived from W3C. These are immutable and portable across applications. Generated code MUST NOT be hand-edited.
 
-2. **Convenience parameters**: Application-specific extensions (e.g., `text` to resolve an element by visible text before calling `pointer_move`). These are defined in a separate application-level spec (e.g., `ops-spec.yaml`) and generated alongside core implementations.
+2. **Convenience parameters**: Application-specific extensions that improve fidelity or completeness of a primitive (e.g., `shadow_dom` on `get_text`, React fallback on `key_down`). These MUST NOT replace cognitive tasks such as target location or content interpretation — those are the agent's responsibility. Convenience parameters are defined in a separate application-level spec (e.g., `ops-spec.yaml`) and generated alongside core implementations.
 
 Both layers SHOULD be auto-generated from their respective specifications. Implementations MAY provide a generator that reads this spec and the application spec to produce code for both layers.
 
