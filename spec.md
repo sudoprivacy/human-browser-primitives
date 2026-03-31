@@ -22,7 +22,11 @@ This specification performs that consolidation, providing:
 
 2. **Completeness**: Every possible human-browser interaction can be expressed as a sequence of these primitives.
 
-3. **Orthogonality**: No primitive can be expressed as a combination of other primitives.
+3. **Orthogonality**: No primitive can be expressed as a combination of other primitives, *at the same level of abstraction*. This spec defines two levels of input primitives, following the W3C structure:
+   - **§2.1–2.4 (Actions API, §15)**: Muscle-level — individual motor signals (press, release, move).
+   - **§2.5 (Element Interaction, §12.5)**: Intention-level — complete human intentions (click, clear).
+
+   `click` and `pointer_down + pointer_up` are not redundant: they represent different human intentions ("tap this" vs "hold/release for drag"). Intention-level primitives exist because their W3C definitions carry semantics beyond their motor decomposition (e.g., click scrolls into view and checks interactability).
 
 4. **Traceability**: Every primitive references its source in W3C specifications. Primitives not present in W3C specs are explicitly marked as extensions with rationale.
 
@@ -42,7 +46,7 @@ This specification covers interaction between a human and **web content rendered
 
 - Browser chrome interaction (address bar, tabs, bookmarks)
 - Operating system interaction (file dialogs, window management, notifications)
-- Composite actions (click = pointer_down + pointer_up; type "hello" = 5 × key_down + key_up)
+- Composite actions (type "hello" = 5 × key_down + key_up; drag = pointer_down + pointer_move + pointer_up)
 - Navigation commands (back, forward, navigate to URL) — these are browser actions, not human-content interactions
 - Application workflows (bug filing, test reporting) — these are tool-level concerns, not HCI primitives
 
@@ -162,6 +166,54 @@ Wait for a specified duration. Represents the human intention to wait before act
 
 **Source**: [WebDriver §15.4.5 — Null actions][wd-null-actions], action type `pause`. Also available on all other input sources.
 
+### 2.5 Element Interaction
+
+Element interaction primitives represent complete human intentions directed at web content. Unlike §2.1–2.4 which model individual motor signals (from W3C §15 Actions API), these are defined in W3C §12.5 and carry higher-level semantics — scrolling elements into view, checking interactability, and producing the correct event sequence.
+
+#### `click`
+
+Click at a position. This is the human intention "tap this" — distinct from `pointer_down` + `pointer_up` which models "hold and release" (used for drag).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `x` | integer | yes | X coordinate in CSS pixels. |
+| `y` | integer | yes | Y coordinate in CSS pixels. |
+| `button` | integer | no | Button index: 0 = left (default), 2 = right. |
+
+**Source**: [WebDriver §12.5.1 — Element Click][wd-element-click].
+
+**Notes**:
+- Implementations MUST dispatch `mousePressed` and `mouseReleased` events within the same execution context to ensure the browser recognizes them as a single click gesture.
+- Unlike the motor decomposition (`pointer_move` + `pointer_down` + `pointer_up`), the intention-level `click` guarantees correct timing and event sequencing.
+
+#### `clear`
+
+Clear the content of an editable element (input field, textarea).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `element` | element reference | yes | The editable element to clear. |
+
+**Source**: [WebDriver §12.5.2 — Element Clear][wd-element-clear].
+
+**Notes**:
+- This is the human intention "empty this field" — a single action, not select-all + delete.
+
+#### `send_keys`
+
+Type text into an element.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `element` | element reference | yes | The target element. |
+| `text` | string | yes | The text to type. |
+
+**Source**: [WebDriver §12.5.3 — Element Send Keys][wd-element-send-keys].
+
+**Notes**:
+- This is the human intention "type this text into this field" — distinct from individual `key_down`/`key_up` sequences which model individual keystrokes.
+- Implementations SHOULD handle framework compatibility (React controlled components, etc.) transparently.
+
 ---
 
 ## 3. Observation Primitives
@@ -236,13 +288,13 @@ The following are **NOT primitives**. They are common compositions of primitives
 
 | Composite | Decomposition | Description |
 |-----------|---------------|-------------|
-| click(x, y) | `pointer_move(x, y)` + `pointer_down(0)` + `pointer_up(0)` | Single left click |
-| double_click(x, y) | click(x, y) × 2 | Double click |
-| right_click(x, y) | `pointer_move(x, y)` + `pointer_down(2)` + `pointer_up(2)` | Context menu click |
+| double_click(x, y) | `click(x, y)` × 2 | Double click |
 | drag(x1, y1, x2, y2) | `pointer_move(x1, y1)` + `pointer_down(0)` + `pointer_move(x2, y2)` + `pointer_up(0)` | Drag and drop |
 | type(text) | `key_down(c)` + `key_up(c)` for each character `c` in text | Type a string |
 | press_key(key) | `key_down(key)` + `key_up(key)` | Press and release a key |
 | press_combo(mod, key) | `key_down(mod)` + `key_down(key)` + `key_up(key)` + `key_up(mod)` | Key combination (e.g., Ctrl+Enter) |
+
+**Note**: `click` was promoted from composite to primitive in §2.5, referencing W3C §12.5.1. `right_click` is expressed as `click(x, y, button=2)`.
 
 ---
 
@@ -257,6 +309,9 @@ The following are **NOT primitives**. They are common compositions of primitives
 - [wd-get-element-text]: https://w3c.github.io/webdriver/#get-element-text "WebDriver §12.4.4 — Get Element Text"
 - [wd-get-element-attribute]: https://w3c.github.io/webdriver/#get-element-attribute "WebDriver §12.4.2 — Get Element Attribute"
 - [wd-is-displayed]: https://w3c.github.io/webdriver/#element-displayedness "WebDriver §12.4.8 — Is Element Displayed"
+- [wd-element-click]: https://w3c.github.io/webdriver/#element-click "WebDriver §12.5.1 — Element Click"
+- [wd-element-clear]: https://w3c.github.io/webdriver/#element-clear "WebDriver §12.5.2 — Element Clear"
+- [wd-element-send-keys]: https://w3c.github.io/webdriver/#element-send-keys "WebDriver §12.5.3 — Element Send Keys"
 - [wd-take-screenshot]: https://w3c.github.io/webdriver/#take-screenshot "WebDriver §18.1 — Take Screenshot"
 - [wd-screenshot]: https://w3c.github.io/webdriver/#screen-capture "WebDriver §18 — Screen Capture"
 - [uievents-key]: https://www.w3.org/TR/uievents-key/ "UI Events KeyboardEvent key Values"
@@ -269,7 +324,8 @@ The following are **NOT primitives**. They are common compositions of primitives
 
 | This Spec | Source |
 |-----------|--------|
-| §2 Input Primitives | [WebDriver §15 Actions][wd-actions], [WebDriver BiDi §7.9 Input][webdriver-bidi-input] |
+| §2.1–2.4 Input Primitives (Actions) | [WebDriver §15 Actions][wd-actions], [WebDriver BiDi §7.9 Input][webdriver-bidi-input] |
+| §2.5 Input Primitives (Element Interaction) | [WebDriver §12.5 Element Interaction][wd-elements] |
 | §3 Observation Primitives | [WebDriver §12 Elements][wd-elements], [WebDriver §18 Screen Capture][wd-screenshot] |
 | §4 Composites | Derived from §2 |
 
@@ -286,7 +342,7 @@ The W3C WebDriver Actions API (§15) defines input primitives only. Observation 
 | pointer_down | `pointer_down(button)` | `left_mouse_down` | — |
 | pointer_up | `pointer_up(button)` | `left_mouse_up` | — |
 | pointer_move | `pointer_move(x, y)` | `mouse_move(coordinate)` | `move(x, y)` |
-| click (composite) | §4 | `left_click` | `click(x, y)` |
+| click | `click(x, y)` | `left_click` | `click(x, y)` |
 | scroll | `scroll(...)` | `scroll(...)` | `scroll(...)` |
 | pause | `pause(duration)` | `wait(duration)` | `wait` |
 | screenshot | `screenshot()` | `screenshot` | `screenshot` |
@@ -294,4 +350,7 @@ The W3C WebDriver Actions API (§15) defines input primitives only. Observation 
 | get_attribute | `get_attribute(element, name)` | — | — |
 | is_displayed | `is_displayed(element)` | — | — |
 
-**Notable**: Anthropic (v20250124) separately defines `left_mouse_down` and `left_mouse_up`, confirming the decomposition of "click" into two primitives. Neither Anthropic nor OpenAI define observation primitives beyond `screenshot`.
+| clear | `clear(element)` | — | — |
+| send_keys | `send_keys(element, text)` | — | — |
+
+**Notable**: Both Anthropic and OpenAI define `click` as a primitive (single action), not as a composite of pointer_down + pointer_up. Anthropic additionally defines `left_mouse_down`/`left_mouse_up` for hold interactions (drag). Neither defines observation primitives beyond `screenshot`.
